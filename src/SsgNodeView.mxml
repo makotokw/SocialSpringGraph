@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  initialize="onInitialize()">
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.flex.extras.controls.forcelayout.Node;
+			import mx.core.FlexGlobals;
+			
+			[Bindable]
+			private var app:main = main(FlexGlobals.topLevelApplication);
+			
+			[Bindable]
+			private var imgUrl:String = "images/default_profile_normal.png";
+			
+			public function onInitialize():void {
+				if (data && data.imageUrl!="") imgUrl = data.imageUrl;
+			}
+			public function doubleClick(event: Event): void {
+				try {
+					var node:SsgNode = data as SsgNode;
+					if (node) {
+						if (!node.isLoaded()) node.load();
+					}
+				} catch (e:Error) {}
+			}
+			public function openDetailInfo():void {
+				try {
+					app.showHtml(data.link);
+				} catch (e:Error) {}
+			}
+		]]>
+	</fx:Script>
+	<s:VGroup horizontalAlign="center" paddingLeft="4" paddingRight="4" paddingTop="4" paddingBottom="4">
+		<mx:Image id="image" source="{imgUrl}" toolTip="{data.name}" scaleX="{app.scaleFactor}" scaleY="{app.scaleFactor}"/>
+		<s:HGroup horizontalAlign="center">
+			<mx:Image source="images/twitter.gif" toolTip="twitter" width="16" height="16" click="{openDetailInfo()}"/>
+			<s:Label text="{data.name}" width="{image.width > 75 ? image.width : 75}" styleName="text" fontSize="10" chromeColor="#CCCCCC"/>
+		</s:HGroup>
+	</s:VGroup>
+</s:ItemRenderer>

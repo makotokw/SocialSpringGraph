@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:fc="http://www.adobe.com/2006/fc"
+		creationComplete="startup()"
+		backgroundColor="#000000" viewSourceURL="srcview/index.html">
+	<fx:Declarations>
+	</fx:Declarations>
+	<fx:Style>
+		global { font-family: Verdana; color: #333333; }
+		.text {color: #ffffff; font-family: Verdana; }
+	</fx:Style>
+	
+	<fc:SpringGraph id="s" backgroundColor="#000000" left="0" right="0" top="0" bottom="0" lineColor="#ffffff"
+					itemRenderer="SsgNodeView" repulsionFactor="{rep.value}" borderVisible="false"/>
+		
+	<s:HGroup left="10" top="10" verticalAlign="middle">
+		<s:HSlider id="rep" value="0.5" minimum="0.1" maximum="1.5" stepSize="0.1" liveDragging="true" change="s.refresh();" width="101"/>
+		<s:Label text="Double-click an image to see friends" fontSize="10" styleName="text" id="help"/>
+	</s:HGroup>
+	
+	<s:HGroup bottom="0" verticalAlign="middle" paddingTop="4" paddingBottom="4" horizontalCenter="0">
+		<s:Label text="copyright" fontSize="10" styleName="text" id="copyright" textAlign="center"/>
+		<mx:LinkButton label="makoto_kw" fontSize="10" styleName="text" paddingLeft="2" paddingRight="2" click="onAuthorLinkClicked(event)"/>
+	</s:HGroup>
+	
+	<s:HGroup right="10" top="10">
+		<s:TextInput id="txtKeyword" text="makoto_kw" width="100" enter="doSearch()" focusIn="IME.enabled = false;"/>
+		<s:Button id="btnSearch" label="connect" click="doSearch()"/>
+	</s:HGroup>
+	
+	<fx:Script>
+		<![CDATA[
+			import blz.google.socialgraph.events.*;
+			import blz.google.socialgraph.webservice.*;
+			
+			import com.adobe.flex.extras.controls.springgraph.Graph;
+			
+			import flash.net.URLRequest;
+			import flash.net.URLVariables;
+			import flash.net.navigateToURL;
+			import flash.system.IME;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.events.BrowserChangeEvent;
+			import mx.managers.BrowserManager;
+			import mx.managers.IBrowserManager;
+			
+			[Bindable]
+			public var scaleFactor: Number = 1.0;
+			[Bindable]
+			public var maxChildNotes:Number = 20;
+			
+			private var browserManager:IBrowserManager;
+			private var socialGraph:GoogleSocialGraph;
+			private var items:Graph;
+			private var mainItem:SsgNode;
+			
+			private var currentUser:String = "";
+			private var authorUrl:String = "http://www.makotokw.com";
+			private var defaultUser:String = "makoto_kw";
+			private var appName:String = "Social Spring Graph";
+			
+			private function startup(): void {
+				this.browserManager = BrowserManager.getInstance();
+				this.browserManager.addEventListener(BrowserChangeEvent.BROWSER_URL_CHANGE, onUrlChange);
+				this.socialGraph = new GoogleSocialGraph;
+				this.items = new Graph;
+				this.s.dataProvider = items;
+				this.rep.value = 0.5; // set default
+				// init UI
+				updateCopyright();
+				
+				var url:String = ExternalInterface.call('window.location.href.toString') as String;
+				var id:String = findUserByUrl(url);
+				if (id.length == 0) id = defaultUser;
+				this.connect(id);
+			}
+			
+			private function findUserByUrl(url:String):String {
+				var user:String = "";
+				try {
+					var a:Array = url.match(/#([\w_]+)$/);
+					if (a.length >= 2) user = a[1];
+				} catch (ex:Error) {}
+				return user;
+			}
+			
+			private function updateCopyright():void {
+				// overwrite copyright 
+				var url:String = this.url;
+				var now:Date = new Date;
+				this.copyright.text = "copyright (c) "+now.getFullYear().toString()+" " + appName;
+			}
+			
+			private function doSearch():void {
+				this.connect(this.txtKeyword.text);
+			}
+			
+			private function connect(name:String):void {
+				if (name.length==0 || this.currentUser == name) return;
+				
+				this.currentUser = name;
+				this.txtKeyword.text = name;
+				browserManager.setTitle(name  + " on " + appName);
+				browserManager.setFragment("#"+name);
+				
+				var q:String = "http://twitter.com/"+name;
+				items.empty();
+				mainItem = new SsgNode(q);
+				mainItem.maxChildNotes = this.maxChildNotes;
+				mainItem.init(socialGraph);
+				items.add(mainItem);
+				mainItem.addEventListener(SsgNodeEvent.LOADED, onItemLoaded);
+				mainItem.load();
+			}
+			
+			public function expand(node:SsgNode):void {
+				try {
+					for (var i:Number=0; i<node.nodes.length; i++) {
+						var newNode:SsgNode = node.nodes[i];
+						if (!newNode.isLoaded()) {
+							items.add(newNode);
+							items.link(node,newNode);
+							newNode.addEventListener(SsgNodeEvent.LOADED, onItemLoaded);
+						}
+					}
+				} catch (ex:Error) {}
+			}
+			
+			public function showHtml(url:String):void {
+				try {
+					var request:URLRequest = new URLRequest(url);
+					var variables:URLVariables = new URLVariables();
+					request.data = variables;
+					navigateToURL(request,"_blank");
+				}
+				catch (e:Error) {
+				}
+			}
+			
+			protected function onAuthorLinkClicked(event:MouseEvent):void
+			{
+				var request:URLRequest = new URLRequest(authorUrl);
+				navigateToURL(request,"_blank");
+			}
+			
+			protected function onItemLoaded(event:SsgNodeEvent):void {
+				var sender:SsgNode = event.target as SsgNode;
+				if (sender) expand(sender);
+			}
+			
+			private function onUrlChange(event:BrowserChangeEvent):void {
+				var user:String = findUserByUrl(event.url);
+				if (user.length > 0) {
+					this.connect(user);
+				}
+			}
+		]]>
+	</fx:Script>
+</s:Application>
